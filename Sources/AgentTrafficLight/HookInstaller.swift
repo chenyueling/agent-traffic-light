@@ -64,6 +64,22 @@ enum HookInstaller {
         }
     }
 
+    static func uninstallForAgentIDs(_ agentIDs: [String]) {
+        var removed: [String] = []
+        for agentID in agentIDs {
+            guard let target = targets()[agentID],
+                  FileManager.default.fileExists(atPath: target.settingsPath) else { continue }
+            if uninstall(for: target) {
+                removed.append(agentID)
+            }
+        }
+        if removed.isEmpty {
+            print("No Traffic Light hooks found.")
+        } else {
+            print("Traffic Light hooks removed for: \(removed.joined(separator: ", "))")
+        }
+    }
+
     static func prepareHookScript() {
         ensureHookScript(force: true)
     }
@@ -144,6 +160,45 @@ enum HookInstaller {
         if let newData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) {
             try? newData.write(to: URL(fileURLWithPath: target.settingsPath), options: .atomic)
             print("✅ Hooks installed for \(target.agentId) → \(target.settingsPath)")
+            return true
+        }
+        return false
+    }
+
+    private static func uninstall(for target: AgentHookTarget) -> Bool {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: target.settingsPath)),
+              var json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hooks = json["hooks"] as? [String: Any] else {
+            print("⚠️  Cannot read \(target.settingsPath)")
+            return false
+        }
+
+        var changed = false
+        var updatedHooks: [String: Any] = [:]
+        for (event, value) in hooks {
+            guard let eventList = value as? [[String: Any]] else {
+                updatedHooks[event] = value
+                continue
+            }
+
+            let cleaned = removeTrafficLightEntries(from: eventList, agentId: target.agentId)
+            if cleaned.count != eventList.count {
+                changed = true
+            }
+            if !cleaned.isEmpty {
+                updatedHooks[event] = cleaned
+            }
+        }
+
+        guard changed else { return false }
+
+        json["hooks"] = updatedHooks
+        let backupPath = target.settingsPath + ".traffic-light.\(Int(Date().timeIntervalSince1970)).bak"
+        try? data.write(to: URL(fileURLWithPath: backupPath))
+
+        if let newData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) {
+            try? newData.write(to: URL(fileURLWithPath: target.settingsPath), options: .atomic)
+            print("🧹 Hooks removed for \(target.agentId) → \(target.settingsPath)")
             return true
         }
         return false

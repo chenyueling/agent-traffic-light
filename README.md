@@ -1,16 +1,23 @@
 # Agent Traffic Light
 
+[![CI](https://github.com/chenyueling/agent-traffic-light/actions/workflows/ci.yml/badge.svg)](https://github.com/chenyueling/agent-traffic-light/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-14%2B-blue.svg)](Package.swift)
+[![Swift](https://img.shields.io/badge/Swift-6-orange.svg)](Package.swift)
+
 [简体中文](README.zh-CN.md)
 
 A floating macOS traffic light for Codex, Claude, CodeBuddy, and other coding agents.
 
 When an agent is working, the light turns green. When it needs your approval or input, it turns yellow. When it is idle, stopped, or in an error state, it returns to the red family. It is built for people who run multiple coding agents and want to know, at a glance, whether something is still working or quietly waiting for them.
 
-![Agent Traffic Light compact preview](assets/preview-compact.png)
+![Agent Traffic Light demo](assets/demo.gif)
 
 ## Preview
 
 The widget can stay compact, or expand on hover to show each agent independently.
+
+![Agent Traffic Light compact preview](assets/preview-compact.png)
 
 ![Agent Traffic Light overview](assets/preview-overview.png)
 
@@ -78,6 +85,17 @@ The zip is created at:
 
 > Current builds are arm64-only and unsigned. They are fine for local use or small trials. Public distribution should use a universal2 build, Developer ID signing, and notarization.
 
+If macOS blocks the unsigned app, right-click `AgentTrafficLight.app`, choose **Open**, and confirm once. This is expected until signed releases are available.
+
+To publish a GitHub Release, push a version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow will build and upload `AgentTrafficLight.zip`.
+
 ## First-Time Setup
 
 1. Open `AgentTrafficLight.app`.
@@ -111,6 +129,16 @@ You can also install hooks from the command line:
 ```bash
 swift run AgentTrafficLight --install-hooks
 ```
+
+To remove hooks installed by Agent Traffic Light:
+
+```bash
+swift run AgentTrafficLight --uninstall-hooks
+```
+
+Or right-click the floating light and choose **Uninstall Hooks…**.
+
+The installer and uninstaller create timestamped `.traffic-light.*.bak` backups before changing agent settings.
 
 ## Manual Status Updates
 
@@ -195,6 +223,13 @@ Agent hook -> traffic-light-hook.sh -> local HTTP server -> floating macOS UI
 
 - macOS 14.0+
 - Swift 6.0 for building from source
+
+## Roadmap
+
+- Signed and notarized releases.
+- Universal2 release builds.
+- Homebrew cask.
+- Tests for hook installation and status aggregation.
 
 ## License
 

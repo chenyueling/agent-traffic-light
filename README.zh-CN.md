@@ -1,16 +1,23 @@
 # Agent Traffic Light
 
+[![CI](https://github.com/chenyueling/agent-traffic-light/actions/workflows/ci.yml/badge.svg)](https://github.com/chenyueling/agent-traffic-light/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-14%2B-blue.svg)](Package.swift)
+[![Swift](https://img.shields.io/badge/Swift-6-orange.svg)](Package.swift)
+
 [English](README.md)
 
 一个 macOS 悬浮状态灯，用红 / 黄 / 绿显示 Codex、Claude、CodeBuddy 等 Coding Agent 的实时工作状态。
 
 Agent 正在工作时，灯是绿色；需要你批准权限或继续输入时，灯变黄色；空闲、停止或异常时，灯回到红色系。它适合同时运行多个 coding agent、又不想反复切窗口确认“它到底还在干活还是已经卡住了”的人。
 
-![Agent Traffic Light compact preview](assets/preview-compact.png)
+![Agent Traffic Light demo](assets/demo.gif)
 
 ## 预览
 
 悬浮灯可以保持紧凑，也可以在悬停时展开，分别显示每个 agent 的状态。
+
+![Agent Traffic Light compact preview](assets/preview-compact.png)
 
 ![Agent Traffic Light overview](assets/preview-overview.png)
 
@@ -78,6 +85,17 @@ make dist
 
 > 当前构建默认是 arm64-only，且没有签名/公证。自用或小范围试用没问题；正式公开分发建议补 universal2 构建、Developer ID 签名和 notarization。
 
+如果 macOS 拦截未签名 app，可以右键 `AgentTrafficLight.app`，选择 **Open**，再确认一次。正式签名版本出来前，这是预期情况。
+
+发布 GitHub Release 时，推送一个版本 tag：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Release workflow 会自动构建并上传 `AgentTrafficLight.zip`。
+
 ## 首次设置
 
 1. 打开 `AgentTrafficLight.app`。
@@ -111,6 +129,16 @@ Hook 安装是显式操作。App 启动时不会静默修改这些文件。
 ```bash
 swift run AgentTrafficLight --install-hooks
 ```
+
+卸载 Agent Traffic Light 安装过的 hooks：
+
+```bash
+swift run AgentTrafficLight --uninstall-hooks
+```
+
+也可以右键悬浮灯，选择 **Uninstall Hooks…**。
+
+安装和卸载前都会创建带时间戳的 `.traffic-light.*.bak` 备份。
 
 ## 手动更新状态
 
@@ -195,6 +223,13 @@ Agent hook -> traffic-light-hook.sh -> local HTTP server -> floating macOS UI
 
 - macOS 14.0+
 - Swift 6.0，仅源码构建需要
+
+## Roadmap
+
+- 签名和公证后的 release。
+- Universal2 release 构建。
+- Homebrew cask。
+- Hook 安装和状态聚合测试。
 
 ## License
 

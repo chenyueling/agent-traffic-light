@@ -652,6 +652,7 @@ final class TrafficLightView: NSView {
             menu.addItem(.separator())
         }
         menu.addItem(withTitle: "Install Hooks…", action: #selector(installHooks), keyEquivalent: "")
+        menu.addItem(withTitle: "Uninstall Hooks…", action: #selector(uninstallHooks), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: pinned ? "Unpin" : "Pin", action: #selector(togglePinned), keyEquivalent: "")
         menu.addItem(.separator())
@@ -699,6 +700,11 @@ final class TrafficLightView: NSView {
     @objc private func installHooks() {
         guard let delegate = NSApp.delegate as? AppDelegate else { return }
         delegate.installHooksFromMenu()
+    }
+
+    @objc private func uninstallHooks() {
+        guard let delegate = NSApp.delegate as? AppDelegate else { return }
+        delegate.uninstallHooksFromMenu()
     }
 
     private func setDemo(_ state: AgentState, _ message: String) {
@@ -1317,6 +1323,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HookInstaller.installForAgentIDs(config.agents.map(\.id))
     }
 
+    func uninstallHooksFromMenu() {
+        HookInstaller.uninstallForAgentIDs(config.agents.map(\.id))
+    }
+
     private func showPanel() {
         let frame = NSRect(x: 80, y: 700, width: 74, height: 146)
         let panel = LightPanel(
@@ -1434,6 +1444,12 @@ if let index = CommandLine.arguments.firstIndex(of: "--render-preview") {
 if CommandLine.arguments.contains("--install-hooks") {
     let config = AppConfig.load()
     HookInstaller.installForAgentIDs(config.agents.map(\.id))
+    exit(0)
+}
+
+if CommandLine.arguments.contains("--uninstall-hooks") {
+    let config = AppConfig.load()
+    HookInstaller.uninstallForAgentIDs(config.agents.map(\.id))
     exit(0)
 }
 
