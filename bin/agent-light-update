@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATE="${1:-idle}"
+AGENT="${2:-agent}"
+REASON="${3:-hook}"
+MESSAGE="${4:-$REASON}"
+OPEN_COMMAND="${5:-}"
+OPEN_APP="${AGENT_LIGHT_OPEN_APP:-}"
+BUNDLE_ID="${AGENT_LIGHT_BUNDLE_ID:-}"
+OPEN_URL="${AGENT_LIGHT_OPEN_URL:-}"
+CWD_VALUE="${PWD:-}"
+
+# Read port from config, default to 17361
+CONFIG_FILE="$HOME/.agent-traffic-light/config.json"
+PORT=17361
+if [ -f "$CONFIG_FILE" ]; then
+    PORT=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('port',17361))" "$CONFIG_FILE" 2>/dev/null || echo 17361)
+fi
+
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/ }"
+  value="${value//$'\r'/ }"
+  printf '%s' "$value"
+}
+
+curl -s -X POST "http://127.0.0.1:$PORT/status" \
+  -H "Content-Type: application/json" \
+  -d "{\"state\":\"$(json_escape "$STATE")\",\"agent\":\"$(json_escape "$AGENT")\",\"reason\":\"$(json_escape "$REASON")\",\"message\":\"$(json_escape "$MESSAGE")\",\"cwd\":\"$(json_escape "$CWD_VALUE")\",\"openApp\":\"$(json_escape "$OPEN_APP")\",\"bundleId\":\"$(json_escape "$BUNDLE_ID")\",\"openURL\":\"$(json_escape "$OPEN_URL")\",\"openCommand\":\"$(json_escape "$OPEN_COMMAND")\"}" \
+  >/dev/null || true
