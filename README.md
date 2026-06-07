@@ -1,36 +1,38 @@
 # Agent Traffic Light
 
-一个 macOS 悬浮状态灯，用红 / 黄 / 绿显示 Codex、Claude、CodeBuddy 等 Coding Agent 的实时工作状态。
+[简体中文](README.zh-CN.md)
 
-当 agent 正在跑，灯是绿色；需要你批准权限或继续输入，灯变黄色；停止、空闲或异常时，灯会回到红色系。它适合同时开多个 coding agent、经常被“agent 其实已经卡住了”打断节奏的人。
+A floating macOS traffic light for Codex, Claude, CodeBuddy, and other coding agents.
+
+When an agent is working, the light turns green. When it needs your approval or input, it turns yellow. When it is idle, stopped, or in an error state, it returns to the red family. It is built for people who run multiple coding agents and want to know, at a glance, whether something is still working or quietly waiting for them.
 
 ![Agent Traffic Light compact preview](assets/preview-compact.png)
 
 ## Preview
 
-悬浮灯可以保持紧凑，也可以悬停展开查看每个 agent 的独立状态。
+The widget can stay compact, or expand on hover to show each agent independently.
 
 ![Agent Traffic Light overview](assets/preview-overview.png)
 
-单个 agent 的详情页会显示状态、原因、消息和当前工作目录。
+The detail view shows the selected agent's state, reason, message, and working directory.
 
 ![Agent Traffic Light agent detail](assets/preview-agent.png)
 
-## What It Does
+## Features
 
-- Tracks multiple agents independently: Codex, Claude, CodeBuddy, Gemini, Cursor, Windsurf and custom agents.
+- Tracks multiple agents independently: Codex, Claude, CodeBuddy, Gemini, Cursor, Windsurf, and custom agents.
 - Aggregates all agents into one floating traffic light.
-- Shows three practical states: working, needs input, idle/error.
+- Uses practical states: working, needs input, idle, and error.
 - Installs lifecycle hooks for supported agents.
-- Opens the related agent app when you choose **Open Agent**.
-- Detects quota/rate-limit style failures and marks them as error instead of staying green forever.
+- Opens the related agent app from the widget when available.
+- Detects quota, rate-limit, and 429-style failures, marking them as error instead of staying green forever.
 
 ## Status Colors
 
 | Color | State | Meaning |
 |---|---|---|
-| Red | `idle` | Agent is stopped or waiting. |
-| Green | `working` | Agent is actively working. |
+| Red | `idle` | The agent is stopped or waiting. |
+| Green | `working` | The agent is actively working. |
 | Yellow | `blocked` | Human input, approval, or permission is needed. |
 | Red pulse | `error` | Error, quota limit, rate limit, or abnormal state. |
 
@@ -40,7 +42,7 @@ Aggregation rule:
 error / blocked > working > idle
 ```
 
-If any agent needs attention, the main light tells you immediately.
+If any agent needs attention, the main light shows it immediately.
 
 ## Quick Start
 
@@ -56,7 +58,7 @@ Then open:
 /Applications/AgentTrafficLight.app
 ```
 
-For development:
+Run from source during development:
 
 ```bash
 swift run AgentTrafficLight
@@ -74,7 +76,7 @@ The zip is created at:
 .build/release/AgentTrafficLight.zip
 ```
 
-> Current builds are arm64-only and unsigned. This is fine for local use or small trials, but public distribution should use a universal2 build, Developer ID signing, and notarization.
+> Current builds are arm64-only and unsigned. They are fine for local use or small trials. Public distribution should use a universal2 build, Developer ID signing, and notarization.
 
 ## First-Time Setup
 
@@ -82,7 +84,7 @@ The zip is created at:
 2. Right-click the floating light and choose **Settings…**.
 3. Confirm the detected agents.
 4. Right-click the floating light and choose **Install Hooks…**.
-5. If using Codex, run `/hooks` inside Codex and trust the new hook.
+5. If you use Codex, run `/hooks` inside Codex and trust the new hook.
 6. Send a fresh prompt to your agent and verify the light changes.
 
 Expected behavior:
