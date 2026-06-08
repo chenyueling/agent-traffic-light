@@ -684,6 +684,8 @@ final class TrafficLightView: NSView {
     private var dragStart: NSPoint?
     private var didDrag = false
     private var timer: Timer?
+    private var collapseWorkItem: DispatchWorkItem?
+    private var resizeInProgress = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -734,8 +736,8 @@ final class TrafficLightView: NSView {
             removeTrackingArea(trackingAreaRef)
         }
         let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways],
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self
         )
         trackingAreaRef = area
@@ -743,6 +745,7 @@ final class TrafficLightView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
+        collapseWorkItem?.cancel()
         guard !expanded else { return }
         expanded = true
         animateResize()
@@ -750,8 +753,15 @@ final class TrafficLightView: NSView {
 
     override func mouseExited(with event: NSEvent) {
         guard !pinned else { return }
-        expanded = false
-        animateResize()
+        collapseWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard !self.pinned, !self.isMouseInsideWindow() else { return }
+            self.expanded = false
+            self.animateResize()
+        }
+        collapseWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -821,6 +831,7 @@ final class TrafficLightView: NSView {
     }
 
     @objc private func togglePinned() {
+        collapseWorkItem?.cancel()
         pinned.toggle()
         expanded = pinned
         animateResize()
@@ -885,7 +896,11 @@ final class TrafficLightView: NSView {
 
     private func animateResize() {
         guard let window else { return }
+        guard !resizeInProgress else { return }
         let size = expanded ? NSSize(width: 392, height: 326) : NSSize(width: 74, height: 146)
+        guard abs(window.frame.width - size.width) > 0.5 || abs(window.frame.height - size.height) > 0.5 else { return }
+
+        resizeInProgress = true
         var frame = window.frame
         frame.origin.y -= size.height - frame.height
         frame.size = size
@@ -893,6 +908,29 @@ final class TrafficLightView: NSView {
             context.duration = 0.18
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             window.animator().setFrame(frame, display: true)
+        } completionHandler: { [weak self] in
+            DispatchQueue.main.async {
+                self?.resizeInProgress = false
+                self?.reconcileHoverState()
+            }
+        }
+    }
+
+    private func isMouseInsideWindow() -> Bool {
+        guard let window else { return false }
+        let point = NSEvent.mouseLocation
+        return window.frame.insetBy(dx: -2, dy: -2).contains(point)
+    }
+
+    private func reconcileHoverState() {
+        guard !pinned else { return }
+        let inside = isMouseInsideWindow()
+        if inside, !expanded {
+            expanded = true
+            animateResize()
+        } else if !inside, expanded {
+            expanded = false
+            animateResize()
         }
     }
 
