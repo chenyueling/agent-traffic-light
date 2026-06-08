@@ -13,6 +13,21 @@ When an agent is working, the light turns green. When it needs your approval or 
 
 ![Agent Traffic Light demo](assets/demo.gif)
 
+## Download
+
+Download the latest app zip from GitHub Releases:
+
+[Download AgentTrafficLight.zip](https://github.com/chenyueling/agent-traffic-light/releases/latest/download/AgentTrafficLight.zip)
+
+Install it like a normal macOS app:
+
+1. Unzip `AgentTrafficLight.zip`.
+2. Move `AgentTrafficLight.app` to `/Applications`.
+3. Open the app.
+4. Right-click the floating light and choose **Install Hooks…**.
+
+If macOS blocks the unsigned app, right-click `AgentTrafficLight.app`, choose **Open**, and confirm once. This is expected until signed releases are available.
+
 ## Preview
 
 The widget can stay compact, or expand on hover to show each agent independently.
@@ -53,7 +68,25 @@ If any agent needs attention, the main light shows it immediately.
 
 ## Quick Start
 
-Build and install the app:
+For most users:
+
+1. Download [AgentTrafficLight.zip](https://github.com/chenyueling/agent-traffic-light/releases/latest/download/AgentTrafficLight.zip).
+2. Unzip it and move `AgentTrafficLight.app` to `/Applications`.
+3. Open the app. If macOS blocks it, right-click the app and choose **Open**.
+4. Right-click the floating light and choose **Install Hooks…**.
+5. If you use Codex, run `/hooks` inside Codex and trust the new hook.
+6. Send a fresh prompt to your agent and verify the light changes.
+
+Expected behavior:
+
+- New prompt starts: green.
+- Permission or input needed: yellow.
+- Work finished: red/idle.
+- Quota, 429, rate limit, or usage limit: error red.
+
+## Developer Setup
+
+Build and install from source:
 
 ```bash
 make install
@@ -85,8 +118,6 @@ The zip is created at:
 
 > Current builds are arm64-only and unsigned. They are fine for local use or small trials. Public distribution should use a universal2 build, Developer ID signing, and notarization.
 
-If macOS blocks the unsigned app, right-click `AgentTrafficLight.app`, choose **Open**, and confirm once. This is expected until signed releases are available.
-
 To publish a GitHub Release, push a version tag:
 
 ```bash
@@ -95,22 +126,6 @@ git push origin v0.1.0
 ```
 
 The release workflow will build and upload `AgentTrafficLight.zip`.
-
-## First-Time Setup
-
-1. Open `AgentTrafficLight.app`.
-2. Right-click the floating light and choose **Settings…**.
-3. Confirm the detected agents.
-4. Right-click the floating light and choose **Install Hooks…**.
-5. If you use Codex, run `/hooks` inside Codex and trust the new hook.
-6. Send a fresh prompt to your agent and verify the light changes.
-
-Expected behavior:
-
-- New prompt starts: green.
-- Permission or input needed: yellow.
-- Work finished: red/idle.
-- Quota, 429, rate limit, or usage limit: error red.
 
 ## Supported Integrations
 
