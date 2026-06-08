@@ -6,6 +6,7 @@ RES_DIR   := $(APP_DIR)/Contents/Resources
 PLIST     := Resources/Info.plist
 HELPER    := bin/agent-light-update
 ICON      := Resources/AgentTrafficLight.icns
+SIGN_IDENTITY ?= -
 
 .PHONY: build clean install run dist help
 
@@ -23,6 +24,7 @@ build: ## Build release binary and bundle .app
 	cp "$(ICON)" "$(RES_DIR)/"
 	cp "$(HELPER)" "$(RES_DIR)/"
 	chmod +x "$(RES_DIR)/agent-light-update"
+	codesign --force --deep --sign "$(SIGN_IDENTITY)" "$(APP_DIR)"
 	@echo "✅ Done: $(APP_DIR)"
 
 clean: ## Clean build artifacts
@@ -38,5 +40,6 @@ run: build ## Build and launch
 	open "$(APP_DIR)"
 
 dist: build ## Create a distributable zip
-	cd "$(BUILD_DIR)" && zip -r "$(APP_NAME).zip" "$(APP_NAME).app"
+	rm -f "$(BUILD_DIR)/$(APP_NAME).zip"
+	ditto -c -k --sequesterRsrc --keepParent "$(APP_DIR)" "$(BUILD_DIR)/$(APP_NAME).zip"
 	@echo "✅ Distribution: $(BUILD_DIR)/$(APP_NAME).zip"

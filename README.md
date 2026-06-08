@@ -26,7 +26,14 @@ Install it like a normal macOS app:
 3. Open the app.
 4. Right-click the floating light and choose **Install Hooks…**.
 
-If macOS blocks the unsigned app, right-click `AgentTrafficLight.app`, choose **Open**, and confirm once. This is expected until signed releases are available.
+If macOS blocks the app, right-click `AgentTrafficLight.app`, choose **Open**, and confirm once. Current releases are ad-hoc signed but not notarized yet, so this is expected until Developer ID signed releases are available.
+
+If macOS says the app is "damaged", delete the old app and zip, download the latest release again, and move it to `/Applications`. If it is still blocked by quarantine, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/AgentTrafficLight.app
+open /Applications/AgentTrafficLight.app
+```
 
 ## Preview
 
@@ -122,7 +129,7 @@ The zip is created at:
 .build/release/AgentTrafficLight.zip
 ```
 
-> Current builds are arm64-only and unsigned. They are fine for local use or small trials. Public distribution should use a universal2 build, Developer ID signing, and notarization.
+> Current builds are arm64-only and ad-hoc signed. They are fine for local use or small trials. Public distribution should use a universal2 build, Developer ID signing, and notarization.
 
 To publish a GitHub Release, push a version tag:
 
