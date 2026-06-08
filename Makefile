@@ -5,6 +5,7 @@ BIN_DIR   := $(APP_DIR)/Contents/MacOS
 RES_DIR   := $(APP_DIR)/Contents/Resources
 PLIST     := Resources/Info.plist
 HELPER    := bin/agent-light-update
+ICON      := Resources/AgentTrafficLight.icns
 
 .PHONY: build clean install run dist help
 
@@ -19,6 +20,7 @@ build: ## Build release binary and bundle .app
 	mkdir -p "$(BIN_DIR)" "$(RES_DIR)"
 	cp "$(BUILD_DIR)/$(APP_NAME)" "$(BIN_DIR)/"
 	cp "$(PLIST)" "$(APP_DIR)/Contents/"
+	cp "$(ICON)" "$(RES_DIR)/"
 	cp "$(HELPER)" "$(RES_DIR)/"
 	chmod +x "$(RES_DIR)/agent-light-update"
 	@echo "✅ Done: $(APP_DIR)"

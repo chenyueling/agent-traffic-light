@@ -6,6 +6,8 @@
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>AgentTrafficLight</string>
+    <key>CFBundleIconFile</key>
+    <string>AgentTrafficLight</string>
     <key>CFBundleIdentifier</key>
     <string>com.agent-traffic-light.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
