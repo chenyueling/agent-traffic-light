@@ -84,6 +84,23 @@ enum HookInstaller {
         ensureHookScript(force: true)
     }
 
+    static var hookScriptLocation: String {
+        hookScriptPath
+    }
+
+    static var hookScriptExists: Bool {
+        FileManager.default.isExecutableFile(atPath: hookScriptPath)
+    }
+
+    static func settingsPath(for agentId: String) -> String? {
+        targets()[agentId]?.settingsPath
+    }
+
+    static func settingsFileExists(for agentId: String) -> Bool {
+        guard let path = settingsPath(for: agentId) else { return false }
+        return FileManager.default.fileExists(atPath: path)
+    }
+
     /// Check if hooks are already configured for a given agent.
     static func isInstalled(for agentId: String) -> Bool {
         guard let target = targets()[agentId],

@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import Network
 
@@ -239,6 +240,91 @@ final class LightPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+enum DiagnosticsReport {
+    static func make(config: AppConfig, snapshot: StatusSnapshot, serverRunning: Bool) -> String {
+        var lines: [String] = []
+        lines.append("Agent Traffic Light Diagnostics")
+        lines.append("Generated: \(Date())")
+        lines.append("")
+        lines.append("App")
+        lines.append("- Local server: \(serverRunning ? "running" : "not running") on port \(config.port)")
+        lines.append("- Config file: \(exists(AppConfig.configFile.path)) \(AppConfig.configFile.path)")
+        lines.append("- Hook script: \(HookInstaller.hookScriptExists ? "installed" : "missing") \(HookInstaller.hookScriptLocation)")
+        lines.append("- Registered agents: \(config.agents.map { $0.id }.joined(separator: ", "))")
+        lines.append("")
+        lines.append("Aggregate")
+        lines.append("- State: \(snapshot.aggregate.state.rawValue)")
+        lines.append("- Agent: \(snapshot.aggregate.agent)")
+        lines.append("- Reason: \(snapshot.aggregate.reason)")
+        lines.append("- Message: \(snapshot.aggregate.message)")
+        lines.append("")
+        lines.append("Agents")
+        for agent in config.agents {
+            let status = snapshot.agents.first { $0.agent == agent.id }
+            let settingsPath = HookInstaller.settingsPath(for: agent.id) ?? "-"
+            let settingsExists = HookInstaller.settingsFileExists(for: agent.id)
+            let installed = HookInstaller.isInstalled(for: agent.id)
+            lines.append("\(agent.displayName) (\(agent.id))")
+            lines.append("- Configured: yes")
+            lines.append("- Hook file: \(settingsExists ? "exists" : "missing") \(settingsPath)")
+            lines.append("- Hooks installed: \(installed ? "yes" : "no")")
+            if let status {
+                lines.append("- Last state: \(status.state.rawValue)")
+                lines.append("- Last reason: \(status.reason)")
+                lines.append("- Last message: \(status.message)")
+                lines.append("- Last signal: \(status.reason == "startup" ? "never" : relativeTime(since: status.updatedAt))")
+                if !status.cwd.isEmpty {
+                    lines.append("- CWD: \(status.cwd)")
+                }
+            } else {
+                lines.append("- Last signal: never")
+            }
+            if agent.id == "codex" {
+                lines.append("- Note: run /hooks in Codex and trust the hook if signals do not arrive.")
+            }
+            lines.append("")
+        }
+        lines.append("Next Steps")
+        lines.append("- If hook files are missing, install the relevant agent first.")
+        lines.append("- If hooks are not installed, right-click the light and choose Install Hooks.")
+        lines.append("- If Codex hooks are installed but silent, run /hooks in Codex and trust them.")
+        lines.append("- If the server is not running, restart AgentTrafficLight.app.")
+        return lines.joined(separator: "\n")
+    }
+
+    static func localServerReachable(port: UInt16) -> Bool {
+        let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+        guard descriptor >= 0 else { return false }
+        defer { close(descriptor) }
+
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_port = port.bigEndian
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        return withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { socketAddress in
+                connect(descriptor, socketAddress, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
+            }
+        }
+    }
+
+    private static func exists(_ path: String) -> String {
+        FileManager.default.fileExists(atPath: path) ? "exists" : "missing"
+    }
+
+    private static func relativeTime(since date: Date) -> String {
+        let seconds = max(0, Int(Date().timeIntervalSince(date)))
+        if seconds < 60 { return "\(seconds)s ago" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m ago" }
+        let hours = minutes / 60
+        if hours < 24 { return "\(hours)h ago" }
+        return "\(hours / 24)d ago"
+    }
+}
+
 enum AgentOpener {
     static func open(_ status: AgentStatus) {
         if let rawURL = status.openURL?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -473,6 +559,73 @@ final class SettingsWindowController: NSObject, NSTableViewDataSource, NSTableVi
 }
 
 @MainActor
+final class DiagnosticsWindowController: NSObject {
+    private var window: NSWindow?
+    private var textView: NSTextView?
+    private var report = ""
+
+    func show(report: String) {
+        self.report = report
+        if window == nil {
+            buildWindow()
+        }
+        textView?.string = report
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func buildWindow() {
+        let width: CGFloat = 640
+        let height: CGFloat = 560
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        w.title = "Agent Traffic Light — Diagnostics"
+        w.isReleasedWhenClosed = false
+        window = w
+
+        guard let contentView = w.contentView else { return }
+
+        let scrollView = NSScrollView(frame: NSRect(x: 20, y: 62, width: width - 40, height: height - 84))
+        scrollView.autoresizingMask = [.width, .height]
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+
+        let textView = NSTextView(frame: scrollView.bounds)
+        textView.autoresizingMask = [.width, .height]
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.font = NSFont(name: "Menlo", size: 12) ?? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.string = report
+        scrollView.documentView = textView
+        self.textView = textView
+        contentView.addSubview(scrollView)
+
+        let copyButton = NSButton(title: "Copy Report", target: self, action: #selector(copyReport))
+        copyButton.frame = NSRect(x: width - 232, y: 20, width: 112, height: 28)
+        copyButton.autoresizingMask = [.minXMargin, .maxYMargin]
+        contentView.addSubview(copyButton)
+
+        let closeButton = NSButton(title: "Close", target: self, action: #selector(close))
+        closeButton.frame = NSRect(x: width - 108, y: 20, width: 88, height: 28)
+        closeButton.autoresizingMask = [.minXMargin, .maxYMargin]
+        contentView.addSubview(closeButton)
+    }
+
+    @objc private func copyReport() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(report, forType: .string)
+    }
+
+    @objc private func close() {
+        window?.close()
+    }
+}
+
+@MainActor
 final class AgentConfigCell: NSView {
     private let idField = NSTextField()
     private let nameField = NSTextField()
@@ -654,6 +807,8 @@ final class TrafficLightView: NSView {
         menu.addItem(withTitle: "Install Hooks…", action: #selector(installHooks), keyEquivalent: "")
         menu.addItem(withTitle: "Uninstall Hooks…", action: #selector(uninstallHooks), keyEquivalent: "")
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Diagnostics…", action: #selector(openDiagnostics), keyEquivalent: "")
+        menu.addItem(.separator())
         menu.addItem(withTitle: pinned ? "Unpin" : "Pin", action: #selector(togglePinned), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Set Working", action: #selector(setWorking), keyEquivalent: "")
@@ -705,6 +860,11 @@ final class TrafficLightView: NSView {
     @objc private func uninstallHooks() {
         guard let delegate = NSApp.delegate as? AppDelegate else { return }
         delegate.uninstallHooksFromMenu()
+    }
+
+    @objc private func openDiagnostics() {
+        guard let delegate = NSApp.delegate as? AppDelegate else { return }
+        delegate.showDiagnostics()
     }
 
     private func setDemo(_ state: AgentState, _ message: String) {
@@ -1138,6 +1298,7 @@ final class TrafficLightView: NSView {
 final class StatusServer: @unchecked Sendable {
     private var listener: NWListener?
     private let encoder = JSONEncoder()
+    private(set) var isRunning = false
 
     init() {
         encoder.dateEncodingStrategy = .iso8601
@@ -1156,6 +1317,7 @@ final class StatusServer: @unchecked Sendable {
             self?.receive(on: connection)
         }
         listener?.start(queue: .global(qos: .userInitiated))
+        isRunning = true
         print("AgentTrafficLight listening on http://127.0.0.1:\(port)/status")
     }
 
@@ -1293,6 +1455,7 @@ final class StatusServer: @unchecked Sendable {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: LightPanel?
     private var settingsWC: SettingsWindowController?
+    private var diagnosticsWC: DiagnosticsWindowController?
     private let server = StatusServer()
     private var config = AppConfig.load()
 
@@ -1325,6 +1488,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func uninstallHooksFromMenu() {
         HookInstaller.uninstallForAgentIDs(config.agents.map(\.id))
+    }
+
+    func showDiagnostics() {
+        let wc = diagnosticsWC ?? DiagnosticsWindowController()
+        diagnosticsWC = wc
+        wc.show(report: DiagnosticsReport.make(
+            config: config,
+            snapshot: StatusStore.shared.snapshot(),
+            serverRunning: server.isRunning
+        ))
     }
 
     private func showPanel() {
@@ -1450,6 +1623,17 @@ if CommandLine.arguments.contains("--install-hooks") {
 if CommandLine.arguments.contains("--uninstall-hooks") {
     let config = AppConfig.load()
     HookInstaller.uninstallForAgentIDs(config.agents.map(\.id))
+    exit(0)
+}
+
+if CommandLine.arguments.contains("--diagnostics") {
+    let config = AppConfig.load()
+    StatusStore.shared.configure(with: config)
+    print(DiagnosticsReport.make(
+        config: config,
+        snapshot: StatusStore.shared.snapshot(),
+        serverRunning: DiagnosticsReport.localServerReachable(port: config.port)
+    ))
     exit(0)
 }
 

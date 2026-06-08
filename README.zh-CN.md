@@ -84,6 +84,12 @@ error / blocked > working > idle
 - 工作结束：红色/空闲。
 - 额度不足、429、rate limit 或 usage limit：异常红色。
 
+如果灯没有变化，右键悬浮灯选择 **Diagnostics…**。也可以运行：
+
+```bash
+/Applications/AgentTrafficLight.app/Contents/MacOS/AgentTrafficLight --diagnostics
+```
+
 ## 开发者设置
 
 从源码构建并安装：
@@ -154,6 +160,19 @@ swift run AgentTrafficLight --uninstall-hooks
 也可以右键悬浮灯，选择 **Uninstall Hooks…**。
 
 安装和卸载前都会创建带时间戳的 `.traffic-light.*.bak` 备份。
+
+## 诊断
+
+如果状态信号没有到达，使用 **Diagnostics…**。报告会检查：
+
+- 本地服务和端口。
+- 配置文件。
+- Hook 脚本。
+- Codex、Claude、CodeBuddy 的 hook 文件。
+- Hooks 是否已安装。
+- 每个 agent 的最近状态和最近信号时间。
+
+提交 issue 时，可以在诊断窗口点击 **Copy Report**。
 
 ## 手动更新状态
 

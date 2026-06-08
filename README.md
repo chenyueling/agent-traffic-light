@@ -84,6 +84,12 @@ Expected behavior:
 - Work finished: red/idle.
 - Quota, 429, rate limit, or usage limit: error red.
 
+If the light does not move, right-click it and choose **Diagnostics…**. You can also run:
+
+```bash
+/Applications/AgentTrafficLight.app/Contents/MacOS/AgentTrafficLight --diagnostics
+```
+
 ## Developer Setup
 
 Build and install from source:
@@ -154,6 +160,19 @@ swift run AgentTrafficLight --uninstall-hooks
 Or right-click the floating light and choose **Uninstall Hooks…**.
 
 The installer and uninstaller create timestamped `.traffic-light.*.bak` backups before changing agent settings.
+
+## Diagnostics
+
+Use **Diagnostics…** when a signal does not arrive. The report checks:
+
+- Local server and port.
+- Config file.
+- Hook script.
+- Hook files for Codex, Claude, and CodeBuddy.
+- Whether hooks are installed.
+- Last known state and last signal time for each agent.
+
+Click **Copy Report** in the diagnostics window when opening an issue.
 
 ## Manual Status Updates
 
