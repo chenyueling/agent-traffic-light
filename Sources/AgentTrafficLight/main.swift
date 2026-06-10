@@ -389,6 +389,86 @@ enum AgentOpener {
     }
 }
 
+struct ReleaseInfo {
+    let tag: String
+    let downloadURL: URL
+}
+
+enum AppUpdater {
+    static let latestReleaseURL = URL(string: "https://github.com/chenyueling/agent-traffic-light/releases/latest")!
+
+    static var currentVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
+    }
+
+    static func fetchLatestRelease() async throws -> ReleaseInfo {
+        var request = URLRequest(url: latestReleaseURL)
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let finalURL = response.url else {
+            throw UpdaterError.invalidReleaseResponse
+        }
+
+        let tag = finalURL.lastPathComponent
+        guard tag.hasPrefix("v"), tag != "latest" else {
+            throw UpdaterError.invalidReleaseResponse
+        }
+
+        guard let downloadURL = URL(string: "https://github.com/chenyueling/agent-traffic-light/releases/download/\(tag)/AgentTrafficLight.zip") else {
+            throw UpdaterError.invalidReleaseResponse
+        }
+        return ReleaseInfo(tag: tag, downloadURL: downloadURL)
+    }
+
+    static func isNewer(_ tag: String, than version: String = currentVersion) -> Bool {
+        compareVersions(normalize(tag), normalize(version)) == .orderedDescending
+    }
+
+    static func install(_ release: ReleaseInfo) throws {
+        guard let helperURL = Bundle.main.resourceURL?.appendingPathComponent("agent-light-self-update"),
+              FileManager.default.fileExists(atPath: helperURL.path)
+        else {
+            throw UpdaterError.helperMissing
+        }
+
+        let process = Process()
+        process.executableURL = helperURL
+        process.arguments = [release.downloadURL.absoluteString, Bundle.main.bundlePath]
+        try process.run()
+    }
+
+    private static func normalize(_ version: String) -> String {
+        version.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+    }
+
+    private static func compareVersions(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        let left = lhs.split(separator: ".").map { Int($0) ?? 0 }
+        let right = rhs.split(separator: ".").map { Int($0) ?? 0 }
+        let count = max(left.count, right.count)
+        for index in 0..<count {
+            let l = index < left.count ? left[index] : 0
+            let r = index < right.count ? right[index] : 0
+            if l > r { return .orderedDescending }
+            if l < r { return .orderedAscending }
+        }
+        return .orderedSame
+    }
+
+    enum UpdaterError: LocalizedError {
+        case invalidReleaseResponse
+        case helperMissing
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidReleaseResponse:
+                "Could not read the latest GitHub release."
+            case .helperMissing:
+                "The update helper is missing. Please download the latest release manually."
+            }
+        }
+    }
+}
+
 // MARK: - Settings Window
 
 @MainActor
@@ -816,6 +896,8 @@ final class TrafficLightView: NSView {
         menu.addItem(withTitle: "Install Hooks…", action: #selector(installHooks), keyEquivalent: "")
         menu.addItem(withTitle: "Uninstall Hooks…", action: #selector(uninstallHooks), keyEquivalent: "")
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Diagnostics…", action: #selector(openDiagnostics), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: pinned ? "Unpin" : "Pin", action: #selector(togglePinned), keyEquivalent: "")
@@ -874,6 +956,11 @@ final class TrafficLightView: NSView {
     @objc private func openDiagnostics() {
         guard let delegate = NSApp.delegate as? AppDelegate else { return }
         delegate.showDiagnostics()
+    }
+
+    @objc private func checkForUpdates() {
+        guard let delegate = NSApp.delegate as? AppDelegate else { return }
+        delegate.checkForUpdates()
     }
 
     private func setDemo(_ state: AgentState, _ message: String) {
@@ -1536,6 +1623,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if config.installHooksOnLaunch {
             HookInstaller.installForAgentIDs(config.agents.map(\.id))
         }
+        scheduleAutomaticUpdateCheck()
     }
 
     func showSettings() {
@@ -1565,6 +1653,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             snapshot: StatusStore.shared.snapshot(),
             serverRunning: server.isRunning
         ))
+    }
+
+    func checkForUpdates(manual: Bool = true) {
+        Task {
+            await performUpdateCheck(manual: manual)
+        }
+    }
+
+    private func scheduleAutomaticUpdateCheck() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            self?.checkForUpdates(manual: false)
+        }
+    }
+
+    private func performUpdateCheck(manual: Bool) async {
+        if !manual, !shouldRunAutomaticUpdateCheck() {
+            return
+        }
+
+        do {
+            if !manual {
+                UserDefaults.standard.set(Date(), forKey: "lastUpdateCheckAt")
+            }
+            let release = try await AppUpdater.fetchLatestRelease()
+            let current = AppUpdater.currentVersion
+            guard AppUpdater.isNewer(release.tag, than: current) else {
+                if manual {
+                    showAlert(
+                        title: "Agent Traffic Light is up to date",
+                        message: "You are running \(current). The latest release is \(release.tag)."
+                    )
+                }
+                return
+            }
+
+            let alert = NSAlert()
+            alert.messageText = "Update available"
+            alert.informativeText = "Version \(release.tag) is available. The app will quit, update itself, and relaunch."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "Install Update")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+            try AppUpdater.install(release)
+            NSApp.terminate(nil)
+        } catch {
+            if manual {
+                showAlert(
+                    title: "Update failed",
+                    message: error.localizedDescription
+                )
+            }
+        }
+    }
+
+    private func shouldRunAutomaticUpdateCheck() -> Bool {
+        guard let lastCheck = UserDefaults.standard.object(forKey: "lastUpdateCheckAt") as? Date else {
+            return true
+        }
+        return Date().timeIntervalSince(lastCheck) > 24 * 60 * 60
+    }
+
+    private func showAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private func showPanel() {

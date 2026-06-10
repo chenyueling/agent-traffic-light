@@ -54,6 +54,7 @@ open /Applications/AgentTrafficLight.app
 - 显示实用状态：工作中、需要输入、空闲、异常。
 - 为支持的 agent 安装生命周期 hooks。
 - 可从悬浮窗打开对应 agent app。
+- 可从悬浮窗检查更新，并自动替换当前 app。
 - 能识别额度不足、rate limit、429 等失败状态，避免一直误显示为绿色工作中。
 
 ## 状态颜色
@@ -83,6 +84,8 @@ error / blocked > working > idle
 4. 右键悬浮灯，选择 **Install Hooks…**。
 5. 如果使用 Codex，在 Codex 里执行 `/hooks`，review/trust 新增 hook。
 6. 给 agent 发一条新 prompt，验证灯是否正常变化。
+
+后续升级时，右键悬浮灯选择 **Check for Updates…**。更新器会下载最新 GitHub Release、校验 app bundle、替换当前 app，并自动重新打开。
 
 预期表现：
 

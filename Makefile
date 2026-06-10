@@ -4,7 +4,8 @@ APP_DIR   := $(BUILD_DIR)/$(APP_NAME).app
 BIN_DIR   := $(APP_DIR)/Contents/MacOS
 RES_DIR   := $(APP_DIR)/Contents/Resources
 PLIST     := Resources/Info.plist
-HELPER    := bin/agent-light-update
+HOOK_HELPER := bin/agent-light-update
+SELF_UPDATE_HELPER := bin/agent-light-self-update
 ICON      := Resources/AgentTrafficLight.icns
 SIGN_IDENTITY ?= -
 
@@ -22,8 +23,10 @@ build: ## Build release binary and bundle .app
 	cp "$(BUILD_DIR)/$(APP_NAME)" "$(BIN_DIR)/"
 	cp "$(PLIST)" "$(APP_DIR)/Contents/"
 	cp "$(ICON)" "$(RES_DIR)/"
-	cp "$(HELPER)" "$(RES_DIR)/"
+	cp "$(HOOK_HELPER)" "$(RES_DIR)/"
+	cp "$(SELF_UPDATE_HELPER)" "$(RES_DIR)/"
 	chmod +x "$(RES_DIR)/agent-light-update"
+	chmod +x "$(RES_DIR)/agent-light-self-update"
 	codesign --force --deep --sign "$(SIGN_IDENTITY)" "$(APP_DIR)"
 	@echo "✅ Done: $(APP_DIR)"
 

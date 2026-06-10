@@ -5,6 +5,7 @@
 - Added floating macOS traffic light UI for multiple coding agents.
 - Added Codex, Claude, and CodeBuddy hook installation.
 - Added explicit hook uninstallation.
+- Added a self-update helper and a Check for Updates menu action.
 - Added diagnostics report window and `--diagnostics` command.
 - Added a custom macOS app icon.
 - Added ad-hoc app bundle signing and macOS-friendly release zips.

@@ -54,6 +54,7 @@ The detail view shows the selected agent's state, reason, message, and working d
 - Uses practical states: working, needs input, idle, and error.
 - Installs lifecycle hooks for supported agents.
 - Opens the related agent app from the widget when available.
+- Checks for updates from the widget and can replace the app automatically.
 - Detects quota, rate-limit, and 429-style failures, marking them as error instead of staying green forever.
 
 ## Status Colors
@@ -83,6 +84,8 @@ For most users:
 4. Right-click the floating light and choose **Install Hooks…**.
 5. If you use Codex, run `/hooks` inside Codex and trust the new hook.
 6. Send a fresh prompt to your agent and verify the light changes.
+
+To update later, right-click the floating light and choose **Check for Updates…**. The updater downloads the latest GitHub Release, verifies the app bundle, replaces the current app, and relaunches it.
 
 Expected behavior:
 

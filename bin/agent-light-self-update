@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOWNLOAD_URL="${1:?download url is required}"
+APP_PATH="${2:?app path is required}"
+APP_NAME="AgentTrafficLight.app"
+LOG_FILE="${TMPDIR:-/tmp}/agent-traffic-light-update.log"
+
+log() {
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG_FILE"
+}
+
+quote() {
+  printf "%q" "$1"
+}
+
+apple_script_quote() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+replace_app() {
+  local source_app="$1"
+  local target_app="$2"
+  rm -rf "$target_app"
+  ditto "$source_app" "$target_app"
+}
+
+replace_app_with_admin() {
+  local source_app="$1"
+  local target_app="$2"
+  local script
+  script="rm -rf $(quote "$target_app") && ditto $(quote "$source_app") $(quote "$target_app")"
+  osascript -e "do shell script $(apple_script_quote "$script") with administrator privileges"
+}
+
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/agent-traffic-light-update.XXXXXX")"
+trap 'rm -rf "$tmp_dir"' EXIT
+
+zip_path="$tmp_dir/AgentTrafficLight.zip"
+extract_dir="$tmp_dir/extracted"
+mkdir -p "$extract_dir"
+
+log "Starting update from $DOWNLOAD_URL"
+curl -fL --retry 3 --retry-delay 2 -o "$zip_path" "$DOWNLOAD_URL"
+ditto -x -k "$zip_path" "$extract_dir"
+
+new_app="$extract_dir/$APP_NAME"
+if [ ! -d "$new_app" ]; then
+  log "Downloaded archive did not contain $APP_NAME"
+  exit 1
+fi
+
+codesign --verify --deep --strict "$new_app"
+xattr -dr com.apple.quarantine "$new_app" 2>/dev/null || true
+
+# Give the running app time to terminate before replacing its bundle.
+for _ in $(seq 1 40); do
+  if ! pgrep -x "AgentTrafficLight" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+
+target_parent="$(dirname "$APP_PATH")"
+target_app="$target_parent/$APP_NAME"
+mkdir -p "$target_parent"
+
+if replace_app "$new_app" "$target_app" 2>>"$LOG_FILE"; then
+  log "Replaced $target_app"
+else
+  log "Regular replacement failed, requesting administrator privileges"
+  replace_app_with_admin "$new_app" "$target_app"
+fi
+
+open "$target_app"
+log "Update complete"
