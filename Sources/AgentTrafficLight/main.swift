@@ -686,6 +686,7 @@ final class TrafficLightView: NSView {
     private var timer: Timer?
     private var collapseWorkItem: DispatchWorkItem?
     private var resizeInProgress = false
+    private var pendingResize = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -747,8 +748,7 @@ final class TrafficLightView: NSView {
     override func mouseEntered(with event: NSEvent) {
         collapseWorkItem?.cancel()
         guard !expanded else { return }
-        expanded = true
-        animateResize()
+        setExpanded(true)
     }
 
     override func mouseExited(with event: NSEvent) {
@@ -757,8 +757,7 @@ final class TrafficLightView: NSView {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             guard !self.pinned, !self.isMouseInsideWindow() else { return }
-            self.expanded = false
-            self.animateResize()
+            self.setExpanded(false)
         }
         collapseWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
@@ -833,8 +832,7 @@ final class TrafficLightView: NSView {
     @objc private func togglePinned() {
         collapseWorkItem?.cancel()
         pinned.toggle()
-        expanded = pinned
-        animateResize()
+        setExpanded(pinned)
     }
 
     @objc private func openSelectedAgent() {
@@ -896,11 +894,15 @@ final class TrafficLightView: NSView {
 
     private func animateResize() {
         guard let window else { return }
-        guard !resizeInProgress else { return }
-        let size = expanded ? NSSize(width: 392, height: 326) : NSSize(width: 74, height: 146)
+        guard !resizeInProgress else {
+            pendingResize = true
+            return
+        }
+        let size = targetSize()
         guard abs(window.frame.width - size.width) > 0.5 || abs(window.frame.height - size.height) > 0.5 else { return }
 
         resizeInProgress = true
+        pendingResize = false
         var frame = window.frame
         frame.origin.y -= size.height - frame.height
         frame.size = size
@@ -910,9 +912,38 @@ final class TrafficLightView: NSView {
             window.animator().setFrame(frame, display: true)
         } completionHandler: { [weak self] in
             DispatchQueue.main.async {
-                self?.resizeInProgress = false
-                self?.reconcileHoverState()
+                guard let self else { return }
+                self.resizeInProgress = false
+                if self.pendingResize {
+                    self.pendingResize = false
+                    self.animateResize()
+                } else {
+                    self.reconcileHoverState()
+                    self.ensureWindowMatchesState()
+                }
             }
+        }
+    }
+
+    private func setExpanded(_ value: Bool) {
+        guard expanded != value else {
+            ensureWindowMatchesState()
+            return
+        }
+        expanded = value
+        needsDisplay = true
+        animateResize()
+    }
+
+    private func targetSize() -> NSSize {
+        expanded ? NSSize(width: 392, height: 326) : NSSize(width: 74, height: 146)
+    }
+
+    private func ensureWindowMatchesState() {
+        guard let window else { return }
+        let size = targetSize()
+        if abs(window.frame.width - size.width) > 0.5 || abs(window.frame.height - size.height) > 0.5 {
+            animateResize()
         }
     }
 
@@ -926,11 +957,9 @@ final class TrafficLightView: NSView {
         guard !pinned else { return }
         let inside = isMouseInsideWindow()
         if inside, !expanded {
-            expanded = true
-            animateResize()
+            setExpanded(true)
         } else if !inside, expanded {
-            expanded = false
-            animateResize()
+            setExpanded(false)
         }
     }
 
