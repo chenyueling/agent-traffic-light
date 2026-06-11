@@ -56,6 +56,7 @@ open /Applications/AgentTrafficLight.app
 - 可从悬浮窗打开对应 agent app。
 - 可从悬浮窗检查更新，并自动替换当前 app。
 - 能识别额度不足、rate limit、429 等失败状态，避免一直误显示为绿色工作中。
+- 如果 agent 没有发出完成信号，会在超时后把陈旧的 `working` 状态重置为空闲。
 
 ## 状态颜色
 
@@ -93,6 +94,7 @@ error / blocked > working > idle
 - 需要权限或输入：黄色。
 - 工作结束：红色/空闲。
 - 额度不足、429、rate limit 或 usage limit：异常红色。
+- 完成信号丢失：超过 working 超时时间后回到红色/空闲，默认 10 分钟。
 
 如果灯没有变化，右键悬浮灯选择 **Diagnostics…**。也可以运行：
 

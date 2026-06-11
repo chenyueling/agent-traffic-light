@@ -9,17 +9,20 @@ struct AppConfig: Codable, @unchecked Sendable {
     var port: UInt16 = 17361
     var agents: [AgentConfig] = []
     var installHooksOnLaunch: Bool = false
+    var workingTimeoutSeconds: TimeInterval = 600
 
     enum CodingKeys: String, CodingKey {
         case port
         case agents
         case installHooksOnLaunch
+        case workingTimeoutSeconds
     }
 
-    init(port: UInt16 = 17361, agents: [AgentConfig] = [], installHooksOnLaunch: Bool = false) {
+    init(port: UInt16 = 17361, agents: [AgentConfig] = [], installHooksOnLaunch: Bool = false, workingTimeoutSeconds: TimeInterval = 600) {
         self.port = port
         self.agents = agents
         self.installHooksOnLaunch = installHooksOnLaunch
+        self.workingTimeoutSeconds = workingTimeoutSeconds
     }
 
     init(from decoder: Decoder) throws {
@@ -27,6 +30,7 @@ struct AppConfig: Codable, @unchecked Sendable {
         port = try container.decodeIfPresent(UInt16.self, forKey: .port) ?? 17361
         agents = try container.decodeIfPresent([AgentConfig].self, forKey: .agents) ?? []
         installHooksOnLaunch = try container.decodeIfPresent(Bool.self, forKey: .installHooksOnLaunch) ?? false
+        workingTimeoutSeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .workingTimeoutSeconds) ?? 600
     }
 
     static let configDir: URL = {

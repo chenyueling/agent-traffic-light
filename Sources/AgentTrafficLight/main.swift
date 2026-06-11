@@ -87,12 +87,14 @@ final class StatusStore: @unchecked Sendable {
     private let lock = NSLock()
     private(set) var agentDisplayNames: [String: String] = [:]
     private(set) var preferredOrder: [String] = []
+    private var workingTimeoutSeconds: TimeInterval = 600
 
     func configure(with config: AppConfig) {
         lock.lock()
         defer { lock.unlock() }
         agentDisplayNames = config.agentDisplayNames
         preferredOrder = config.preferredOrder
+        workingTimeoutSeconds = max(60, config.workingTimeoutSeconds)
         for agent in config.agents {
             if agents[agent.id] == nil {
                 agents[agent.id] = AgentStatus(
@@ -133,6 +135,38 @@ final class StatusStore: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return StatusSnapshot(aggregate: aggregateStatus, agents: sortedAgents())
+    }
+
+    func expireStaleWorkingStatuses() {
+        lock.lock()
+        let now = Date()
+        var changed = false
+        for (agent, status) in agents where status.state == .working && now.timeIntervalSince(status.updatedAt) > workingTimeoutSeconds {
+            agents[agent] = AgentStatus(
+                state: .idle,
+                agent: status.agent,
+                reason: "timeout",
+                message: "No completion signal received; reset to idle",
+                cwd: status.cwd,
+                openApp: status.openApp,
+                bundleId: status.bundleId,
+                openURL: status.openURL,
+                openCommand: status.openCommand,
+                updatedAt: now
+            )
+            changed = true
+        }
+        guard changed else {
+            lock.unlock()
+            return
+        }
+        aggregateStatus = aggregate(from: sortedAgents())
+        let snapshot = StatusSnapshot(aggregate: aggregateStatus, agents: sortedAgents())
+        lock.unlock()
+
+        DispatchQueue.main.async {
+            self.onChange?(snapshot)
+        }
     }
 
     func update(_ next: AgentStatus) {
@@ -251,6 +285,7 @@ enum DiagnosticsReport {
         lines.append("- Config file: \(exists(AppConfig.configFile.path)) \(AppConfig.configFile.path)")
         lines.append("- Hook script: \(HookInstaller.hookScriptExists ? "installed" : "missing") \(HookInstaller.hookScriptLocation)")
         lines.append("- Registered agents: \(config.agents.map { $0.id }.joined(separator: ", "))")
+        lines.append("- Working timeout: \(Int(config.workingTimeoutSeconds))s")
         lines.append("")
         lines.append("Aggregate")
         lines.append("- State: \(snapshot.aggregate.state.rawValue)")
@@ -1610,6 +1645,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: LightPanel?
     private var settingsWC: SettingsWindowController?
     private var diagnosticsWC: DiagnosticsWindowController?
+    private var staleStatusTimer: Timer?
     private let server = StatusServer()
     private var config = AppConfig.load()
 
@@ -1623,7 +1659,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if config.installHooksOnLaunch {
             HookInstaller.installForAgentIDs(config.agents.map(\.id))
         }
+        startStaleStatusTimer()
         scheduleAutomaticUpdateCheck()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        staleStatusTimer?.invalidate()
     }
 
     func showSettings() {
@@ -1713,6 +1754,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
         }
         return Date().timeIntervalSince(lastCheck) > 24 * 60 * 60
+    }
+
+    private func startStaleStatusTimer() {
+        staleStatusTimer?.invalidate()
+        staleStatusTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { _ in
+            StatusStore.shared.expireStaleWorkingStatuses()
+        }
+        staleStatusTimer?.tolerance = 5
     }
 
     private func showAlert(title: String, message: String) {

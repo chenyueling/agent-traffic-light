@@ -56,6 +56,7 @@ The detail view shows the selected agent's state, reason, message, and working d
 - Opens the related agent app from the widget when available.
 - Checks for updates from the widget and can replace the app automatically.
 - Detects quota, rate-limit, and 429-style failures, marking them as error instead of staying green forever.
+- Resets stale `working` states to idle if an agent never sends a completion signal.
 
 ## Status Colors
 
@@ -93,6 +94,7 @@ Expected behavior:
 - Permission or input needed: yellow.
 - Work finished: red/idle.
 - Quota, 429, rate limit, or usage limit: error red.
+- Missing completion signal: returns to red/idle after the working timeout, default 10 minutes.
 
 If the light does not move, right-click it and choose **Diagnostics…**. You can also run:
 
